@@ -3,18 +3,52 @@
 #include "configuration.h"
 #include "thermometer.h"
 
-float Thermometer::readCurrentTemperature()
+Thermometer::Thermometer(long interval)
+{
+    this->interval = interval;
+    this->currentTemperature = INT32_MIN;
+    this->lastReadingTime = 0;
+}
+
+float Thermometer::readTemperature()
 {
     float resistence, temperature;
 
     resistence = this->readThermistor();
 
-    // Serial.print("Resistence: ");
-    // Serial.println(resistence);
+#if DEBUG_TEMPERATURE_READING
+    Serial.print("Resistence: ");
+    Serial.println(resistence);
+#endif
 
     temperature = this->convertResistenceToTemperature(resistence);
 
+#if DEBUG_TEMPERATURE_READING
+    Serial.print("Temperature: ");
+    Serial.println(temperature);
+#endif
+
     return temperature;
+}
+
+bool Thermometer::isTemperatureUpdated()
+{
+    unsigned long currentTime = millis();
+    if ((currentTime - this->lastReadingTime) >= this->interval)
+    {
+        this->lastReadingTime = currentTime;
+        this->currentTemperature = this->readTemperature();
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+float Thermometer::getCurrentTemperature()
+{
+    return this->currentTemperature;
 }
 
 float Thermometer::readThermistor()
@@ -24,11 +58,7 @@ float Thermometer::readThermistor()
 
     for (i = 0; i < THERMISTOR_READ_SAMPLES; i++)
     {
-        // Serial.print("i=");
-        // Serial.print(i);
-        // Serial.print(" read: ");
         samples[i] = analogRead(THERMISTOR_PIN);
-        // Serial.println(samples[i]);
         delay(10);
     }
 
@@ -40,16 +70,8 @@ float Thermometer::readThermistor()
     }
     float average = total / THERMISTOR_READ_SAMPLES;
 
-    // Serial.print("Total of readings: ");
-    // Serial.print(total);
-    // Serial.print(" Average read: ");
-    // Serial.println(average);
-
     float reading = (1023 / average) - 1;                 // (1023/ADC - 1)
     reading = THERMISTOR_PULLUP_RESISTOR_VALUE / reading; // 4.7K / (1023/ADC - 1)
-
-    // Serial.print("Calculated reading: ");
-    // Serial.println(reading);
 
     return reading;
 }

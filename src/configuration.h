@@ -23,6 +23,8 @@
 #define TEMPERATURE_NOMINAL                 25      // temp. for nominal resistance (almost always 25 C)
 #define BCOEFFICIENT                        3950    // The beta coefficient of the thermistor (usually 3000-4000)
 
+#define TEMP_READ_INTERVAL                  1000    // Time in sec
+
 #define MIN_TEMP                            28
 #define MAX_TEMP                            80
 
@@ -32,3 +34,5 @@
 #define DEFAULT_Ki 1.54
 #define DEFAULT_Kd 76.55
 
+#define DEBUG_TEMPERATURE_READING false
+#define DEBUG_LCD_LINE_PRINT true
