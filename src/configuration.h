@@ -1,7 +1,8 @@
 #pragma once
 
-#define LCD_COLS 20
-#define LCD_ROWS 4
+#define LCD_COLS            20
+#define LCD_ROWS            4
+#define LCD_UPDATE_INTERVAL 100
 
 #define RS 12
 #define EN 11
@@ -35,4 +36,11 @@
 #define DEFAULT_Kd 76.55
 
 #define DEBUG_TEMPERATURE_READING false
-#define DEBUG_LCD_LINE_PRINT true
+#define DEBUG_LCD_LINE_PRINT false
+
+// Change values more rapidly when the encoder is rotated faster
+// #define ENCODER_RATE_MULTIPLIER
+#ifdef ENCODER_RATE_MULTIPLIER
+  #define ENCODER_10X_STEPS_PER_SEC   30  // (steps/s) Encoder rate for 10x speed
+  #define ENCODER_100X_STEPS_PER_SEC  80  // (steps/s) Encoder rate for 100x speed
+#endif

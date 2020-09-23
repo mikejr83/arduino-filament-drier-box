@@ -4,6 +4,7 @@
 
 #include "configuration.h"
 #include "encoder.h"
+#include "heater.h"
 #include "lcd.h"
 #include "thermometer.h"
 
@@ -15,12 +16,12 @@ unsigned long currentMillis;      // Current
 const long interval = 1000;       // / 3;   // Update on 1/3 of a second.
 
 const long tempReadInterval = TEMP_READ_INTERVAL;
-long lcdUpdateInterval = 1000 / 3;
 
-double setTemperature = 50.0;
-
+double setTemperature = 35.0;
 double inputTemperature = 0;
 double outputTemperature = 0;
+
+float encoderOffset = 0;
 
 double defaultKp = DEFAULT_Kp;
 double defaultKi = DEFAULT_Ki;
@@ -29,9 +30,9 @@ double defaultKd = DEFAULT_Kd;
 bool heating = false;
 
 Encoder encoder;
-LcdHelper lcd(lcdUpdateInterval, &heating, &inputTemperature, &setTemperature);
+LcdHelper lcd(LCD_UPDATE_INTERVAL, &heating, &inputTemperature, &setTemperature);
 Thermometer thermometer(TEMP_READ_INTERVAL);
-AutoPID pid(&inputTemperature, &setTemperature, &outputTemperature, 0, 255, defaultKp, defaultKi, defaultKd);
+Heater heater(&inputTemperature, &setTemperature);
 
 void setup()
 {
@@ -44,20 +45,13 @@ void setup()
   pinMode(BTN_ENC, INPUT);     // Set BTN_ENC as an unput, encoder button
   digitalWrite(BTN_ENC, HIGH); // turn on pullup resistors
 
-  //turn the PID on
-  pid.setBangBang(4);
-
   // set up the LCD's number of columns and rows:
   lcd.init();
 }
 
 void loop()
 {
-  // If we're heating insure that the PID is running.
-  if (heating)
-  {
-    pid.run();
-  }
+  heater.run();
 
   // If our
   if (thermometer.isTemperatureUpdated())
@@ -72,20 +66,38 @@ void loop()
     inputTemperature = currentTemperature;
   }
 
-  // Read the encoder and update encoderPos
-  // encoder0PinNow = digitalRead(BTN_EN1);
-  // if ((encoder0PinALast == LOW) && (encoder0PinNow == HIGH))
-  // {
-  //   if (digitalRead(BTN_EN2) == HIGH)
-  //   {
-  //     setTemperature++;
-  //   }
-  //   else
-  //   {
-  //     setTemperature--;
-  //   }
-  // }
-  // encoder0PinALast = encoder0PinNow;
+  ENCODER_DiffState diffState = encoder.analyze();
+  
+  switch (diffState)
+  {
+  case ENCODER_DIFF_CCW:
+    setTemperature -= 1;
+    Serial.println(setTemperature);
+    break;
+
+  case ENCODER_DIFF_CW:
+    setTemperature += 1;
+    Serial.println(setTemperature);
+    break;
+
+  default:
+    break;
+  }
+
+  if (diffState == ENCODER_DIFF_ENTER)
+  {
+    //Serial.println("PUSHED");
+  }
+
+  currentMillis = millis();
+  if (currentMillis - previousMillis >= 800)
+  {
+    previousMillis = currentMillis;
+    char setTempAsChar[4], setTemperatureNotice[20];
+    dtostrf(setTemperature, 4, 1, setTempAsChar);
+    snprintf(setTemperatureNotice, sizeof(setTemperatureNotice), "Set to %sC", setTempAsChar);
+    lcd.setLine(2, setTemperatureNotice);
+  }
 
   //read the encoder button status
   bool encoderPressedStatus = encoder.debounceReadPinDepressed();
@@ -93,19 +105,18 @@ void loop()
   {
     Serial.println("debounced pressed");
   }
-  if (encoderPressedStatus && !heating)
+  if (encoderPressedStatus && !heater.getHeating())
   {
     lcd.setLine(3, "Heating...");
-    heating = true;
+    heater.setHeating(true);
   }
-  else if (encoderPressedStatus && heating)
+  else if (encoderPressedStatus && heater.getHeating())
   {
     lcd.setLine(3, "Cooling down...");
-    pid.stop();
-    heating = false;
+    heater.setHeating(false);
   }
 
-  if (!heating && inputTemperature <= 30)
+  if (!heater.getHeating() && inputTemperature <= 30)
   {
     lcd.setLine(3, "Ready...");
   }
